@@ -14,6 +14,7 @@ from selenium.common.exceptions import TimeoutException
 import requests
 from dotenv import load_dotenv
 import load_files
+import combine_nwas_ghost
 
 # Load credentials from .env file
 load_dotenv()
@@ -39,6 +40,20 @@ def load_and_clean_file():
     if cleaned_df is not None:
         cleaned_df.to_excel(CLEANED_FILE, index=False)
         print(f"Cleaned file saved as '{CLEANED_FILE}'.")
+
+
+def combine_nwas_and_ghost():
+    """Build Modified_NWAS_File.xlsx from a raw NWAS/Ghost workbook."""
+    result = combine_nwas_ghost.get_excel_file()
+    if result is None:
+        return
+    nwas_data, ghost_data = result
+    combine_nwas_ghost.calc_time_dif(NWAS_data=nwas_data, ghost_data=ghost_data)
+
+
+def export_cleaned_from_modified():
+    """Write the portal upload file from an existing Modified_NWAS_File.xlsx."""
+    combine_nwas_ghost.export_cleaned_ghost_data()
 
 
 def open_chrome_and_login():
@@ -266,9 +281,11 @@ def main_menu():
         print("2. Open Chrome and login")
         print("3. Update times on the NWAS portal using cleaned file")
         print("4. Auto-run all call signs through a full month")
+        print("5. Combine a raw NWAS/Ghost workbook into Modified_NWAS_File.xlsx")
+        print("6. Create the cleaned ghost file from Modified_NWAS_File.xlsx")
         print("0. Exit")
 
-        choice = input("Select an option (0, 1, 2, 3, or 4): ").strip()
+        choice = input("Select an option (0-6): ").strip()
 
         if choice == "1":
             load_and_clean_file()
@@ -283,6 +300,10 @@ def main_menu():
                 run_full_automation(year=year, month=month)
             except ValueError:
                 print("Invalid month/year. Please enter numbers.")
+        elif choice == "5":
+            combine_nwas_and_ghost()
+        elif choice == "6":
+            export_cleaned_from_modified()
         elif choice == "0":
             break
         else:

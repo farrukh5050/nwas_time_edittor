@@ -21,11 +21,13 @@ def split_and_duplicate_rows(df):
 
 def select_excel_file():
     """Open file dialog to select an Excel or CSV file."""
-    Tk().withdraw()
+    root = Tk()
+    root.withdraw()
     file_path = askopenfilename(
         title="Import Ghost File",
         filetypes=[("Excel or CSV files", "*.xlsx *.xls *.csv")]
     )
+    root.destroy()
 
     if not file_path:
         print("No file selected.")

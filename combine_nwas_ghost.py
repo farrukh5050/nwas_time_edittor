@@ -20,14 +20,10 @@ def get_excel_file():
     root.destroy()  # Close Tk instance properly
 
     if not file_path:
-        print("No file selected. Exiting.")
-        exit()
+        print("No file selected.")
+        return None
 
     print(f"File selected: {file_path}")
-
-    if not file_path:
-        print("No file selected.")
-        exit()
 
     NWAS_data = pd.read_excel(file_path, sheet_name=1, dtype={"Journey Time": str})
     ghost_data = pd.read_excel(file_path, sheet_name=0)
@@ -222,7 +218,7 @@ def export_cleaned_ghost_data():
     root.destroy()
 
     if not file_path:
-        print("No file selected. Exiting.")
+        print("No file selected.")
         return
 
     print(f"File selected: {file_path}")
@@ -266,7 +262,9 @@ if __name__ == "__main__":
     if choice == "2":
         export_cleaned_ghost_data()
     elif choice == "1":
-        NWAS_data, ghost_data = get_excel_file()
-        calc_time_dif(NWAS_data=NWAS_data, ghost_data=ghost_data)
+        result = get_excel_file()
+        if result is not None:
+            NWAS_data, ghost_data = result
+            calc_time_dif(NWAS_data=NWAS_data, ghost_data=ghost_data)
     else:
         print("Invalid choice. Exiting.")
