@@ -13,60 +13,58 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 import requests
 from dotenv import load_dotenv
-import load_files
-import combine_nwas_ghost
 
-# Load credentials from .env file
-load_dotenv()
+import nwas_pipeline
 
-nwas_username = os.getenv("NWAS_USERNAME")
-nwas_password = os.getenv("NWAS_PASSWORD")
-if not nwas_username or not nwas_password:
-    raise RuntimeError(
-        "Missing credentials: set NWAS_USERNAME and NWAS_PASSWORD in your .env file."
-    )
+CLEANED_FILE = nwas_pipeline.CLEANED_FILE
 
-# Re-bound as plain str so type checkers know they cannot be None past this point
-NWAS_USERNAME: str = nwas_username
-NWAS_PASSWORD: str = nwas_password
+# The resources the month-long automation works through.
+CALL_SIGNS = [
+    "STCDAM",
+    "STCDEV",
+    "STCDPM",
+    "STCLAN",
+    "STCPLAM",
+    "STCPLAM2",
+    "STCPLEV",
+    "STCPLEV2",
+    "STCPLPM",
+    "STCPLPM2",
+]
 
 # Store the browser driver so it can be reused
 driver: WebDriver | None = None
-CLEANED_FILE = "cleaned_ghost_data.xlsx"
 
 
-def load_and_clean_file():
-    cleaned_df = load_files.select_excel_file()
-    if cleaned_df is not None:
-        cleaned_df.to_excel(CLEANED_FILE, index=False)
-        print(f"Cleaned file saved as '{CLEANED_FILE}'.")
+def credentials():
+    """Read the portal login from .env. Raises if either value is missing.
 
-
-def combine_nwas_and_ghost():
-    """Build Modified_NWAS_File.xlsx from a raw NWAS/Ghost workbook."""
-    result = combine_nwas_ghost.get_excel_file()
-    if result is None:
-        return
-    nwas_data, ghost_data = result
-    combine_nwas_ghost.calc_time_dif(NWAS_data=nwas_data, ghost_data=ghost_data)
-
-
-def export_cleaned_from_modified():
-    """Write the portal upload file from an existing Modified_NWAS_File.xlsx."""
-    combine_nwas_ghost.export_cleaned_ghost_data()
+    Read on demand rather than at import, so the UI can start and report the
+    problem itself instead of dying on the import.
+    """
+    load_dotenv()
+    username = os.getenv("NWAS_USERNAME")
+    password = os.getenv("NWAS_PASSWORD")
+    if not username or not password:
+        raise RuntimeError(
+            "Missing credentials: set NWAS_USERNAME and NWAS_PASSWORD in your .env file."
+        )
+    return username, password
 
 
 def open_chrome_and_login():
+    """Open Chrome, log into the portal, and land on the quality entry page."""
     global driver
     if driver:
         print("Chrome is already open.")
         return
 
+    username, password = credentials()
     driver = webdriver.Chrome()
     driver.maximize_window()
     driver.get("https://ptsed.nwas.nhs.uk/")
-    driver.find_element(By.ID, "txtUsername").send_keys(NWAS_USERNAME)
-    driver.find_element(By.ID, "txtPassword").send_keys(NWAS_PASSWORD)
+    driver.find_element(By.ID, "txtUsername").send_keys(username)
+    driver.find_element(By.ID, "txtPassword").send_keys(password)
     submitBtn = driver.find_element(By.ID, "cmdSubmit")
     submitBtn.click()
     WebDriverWait(driver, 30).until(EC.staleness_of(submitBtn))
@@ -75,7 +73,7 @@ def open_chrome_and_login():
     WebDriverWait(driver, 30).until(
         EC.presence_of_element_located((By.ID, "txtPlanDate"))
     )
-    input("Load dates on the page and press Enter to continue...")
+    print("Logged in. Load the dates you want in Chrome, then update times.")
 
 
 def get_ids_from_table(driver: WebDriver, ghost_df):
@@ -134,14 +132,14 @@ def update_ghost_times(session, matched_df, date_str):
 
 def update_times(ghost_df=None):
     if driver is None:
-        print("Please run option 2 first to open and log into Chrome.")
+        print("Chrome is not open. Use 'Open Chrome and log in' first.")
         return
 
     if ghost_df is None:
         try:
             ghost_df = load_ghost_file()
         except FileNotFoundError:
-            print(f"'{CLEANED_FILE}' not found. Run option 1 first.")
+            print(f"'{CLEANED_FILE}' not found. Build the upload file first.")
             return
 
     try:
@@ -209,29 +207,18 @@ def load_ghost_file(path=CLEANED_FILE):
 def run_full_automation(year, month, call_signs=None, load_wait=10):
     """Loop over each call sign and every day of the month, search, then update times."""
     if driver is None:
-        print("Please run option 2 first to open and log into Chrome.")
+        print("Chrome is not open. Use 'Open Chrome and log in' first.")
         return
 
     if call_signs is None:
-        call_signs = [
-            "STCDAM",
-            "STCDEV",
-            "STCDPM",
-            "STCLAN",
-            "STCPLAM",
-            "STCPLAM2",
-            "STCPLEV",
-            "STCPLEV2",
-            "STCPLPM",
-            "STCPLPM2",
-        ]
+        call_signs = CALL_SIGNS
 
     dates = month_dates(year, month)
 
     try:
         ghost_df = load_ghost_file()
     except FileNotFoundError:
-        print(f"'{CLEANED_FILE}' not found. Run option 1 first.")
+        print(f"'{CLEANED_FILE}' not found. Build the upload file first.")
         return
 
     for call_sign in call_signs:
@@ -275,47 +262,11 @@ def run_full_automation(year, month, call_signs=None, load_wait=10):
     print("\nFull automation complete.")
 
 
-def main_menu():
-    while True:
-        print("1. Load and clean a ghost file (Excel or CSV)")
-        print("2. Open Chrome and login")
-        print("3. Update times on the NWAS portal using cleaned file")
-        print("4. Auto-run all call signs through a full month")
-        print("5. Combine a raw NWAS/Ghost workbook into Modified_NWAS_File.xlsx")
-        print("6. Create the cleaned ghost file from Modified_NWAS_File.xlsx")
-        print("0. Exit")
-
-        choice = input("Select an option (0-6): ").strip()
-
-        if choice == "1":
-            load_and_clean_file()
-        elif choice == "2":
-            open_chrome_and_login()
-        elif choice == "3":
-            update_times()
-        elif choice == "4":
-            try:
-                month = int(input("Enter month number (1-12): ").strip())
-                year = int(input("Enter year (e.g. 2026): ").strip())
-                run_full_automation(year=year, month=month)
-            except ValueError:
-                print("Invalid month/year. Please enter numbers.")
-        elif choice == "5":
-            combine_nwas_and_ghost()
-        elif choice == "6":
-            export_cleaned_from_modified()
-        elif choice == "0":
-            break
-        else:
-            print("Invalid choice. Please try again.")
-
-
-if __name__ == "__main__":
-    try:
-        main_menu()
-    except KeyboardInterrupt:
-        print("\nInterrupted.")
-    finally:
-        if driver:
+def close_browser():
+    """Shut Chrome down. Safe to call when it was never opened."""
+    global driver
+    if driver is not None:
+        try:
             driver.quit()
-        print("Exiting.")
+        finally:
+            driver = None
