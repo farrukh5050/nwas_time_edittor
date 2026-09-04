@@ -128,7 +128,7 @@ def get_excel_file():
     return NWAS_data, ghost_data
 
 
-def calc_time_dif(NWAS_data, ghost_data):
+def calc_time_dif(NWAS_data, ghost_data, output_filename="Modified_NWAS_File.xlsx"):
     NWAS_data["Time"] = pd.to_datetime(
         NWAS_data["Time"], format="%H:%M:%S", errors="coerce"
     ).dt.time
@@ -166,7 +166,6 @@ def calc_time_dif(NWAS_data, ghost_data):
 
     NWAS_data["Status"] = NWAS_data.apply(categorize_time_diff, axis=1)
 
-    output_filename = "Modified_NWAS_File.xlsx"
     with pd.ExcelWriter(output_filename, engine="xlsxwriter") as writer:
         NWAS_data.to_excel(writer, sheet_name="Modified_NWAS", index=False)
         ghost_data.to_excel(writer, sheet_name="Ghost_Data", index=False)
