@@ -11,3 +11,8 @@ dist/
 
 .venv/
 .vscode/
+
+//ignore excel files like csv, xlsx
+*.xlsx
+*.csv
+*.xls
