@@ -13,6 +13,7 @@ import contextlib
 import io
 import os
 import queue
+import sys
 import threading
 import traceback
 from typing import Any
@@ -73,9 +74,7 @@ class App(ttk.Frame):
 
         self.paths = {"nwas": None, "ghost": None}
         self.slot_labels = {}
-        self.output_path = tk.StringVar(
-            value=os.path.abspath(nwas_pipeline.MODIFIED_FILE)
-        )
+        self.output_path = tk.StringVar(value=nwas_pipeline.modified_path())
         self.status = tk.StringVar(value="Ready.")
         self.upload_status = tk.StringVar()
         self.month = tk.StringVar()
@@ -318,7 +317,7 @@ class App(ttk.Frame):
     def _accept(self, kind, path):
         """Store a validated file, defaulting the output beside the NWAS export."""
         self.paths[kind] = path
-        default = os.path.abspath(nwas_pipeline.MODIFIED_FILE)
+        default = nwas_pipeline.modified_path()
         if kind == "nwas" and self.output_path.get() == default:
             self.output_path.set(
                 os.path.join(os.path.dirname(path), nwas_pipeline.MODIFIED_FILE)
@@ -382,7 +381,7 @@ class App(ttk.Frame):
 
     # -------------------------------------------------------- tab 2 actions
     def _write_upload_file(self, frame):
-        target = os.path.abspath(nwas_pipeline.CLEANED_FILE)
+        target = nwas_pipeline.cleaned_path()
         frame.to_excel(target, index=False)
         print("Upload file saved as '%s' (%d rows)." % (target, len(frame)))
         return target
@@ -525,7 +524,7 @@ class App(ttk.Frame):
             else:
                 label.configure(text="not loaded - expects " + hint, foreground="#888")
 
-        target = os.path.abspath(nwas_pipeline.CLEANED_FILE)
+        target = nwas_pipeline.cleaned_path()
         if os.path.exists(target):
             self.upload_status.set("Current upload file: %s" % target)
         else:
@@ -533,6 +532,13 @@ class App(ttk.Frame):
 
 
 def main():
+    # A windowed (no console) build has sys.stdout set to None. print() to it
+    # is silently dropped, but a .flush() on it raises, and some libraries do
+    # that. Jobs redirect stdout to the log anyway; this covers the rest.
+    for name in ("stdout", "stderr"):
+        if getattr(sys, name, None) is None:
+            setattr(sys, name, io.StringIO())
+
     root = TkinterDnD.Tk() if TkinterDnD is not None else tk.Tk()
     root.title("NWAS Time Editor")
     root.minsize(660, 800)

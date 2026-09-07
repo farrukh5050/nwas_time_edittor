@@ -9,6 +9,7 @@ combine_nwas_ghost, portal and gui can all depend on it without a cycle.
 
 import os
 import re
+import sys
 
 import pandas as pd
 
@@ -48,6 +49,28 @@ MODIFIED_SHEET = "Modified_NWAS"
 
 # The three columns the portal upload file needs.
 UPLOAD_COLUMNS = ["Your Reference 1", "Vehicle Arrived at Time", "Completed at Time"]
+
+
+def app_dir():
+    """Where the app lives: the .exe's folder when frozen, else this file's.
+
+    The working directory is not reliable for a packaged app - launching from a
+    shortcut can leave it pointing anywhere - so .env and the output files are
+    anchored here instead.
+    """
+    if getattr(sys, "frozen", False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+def cleaned_path():
+    """Absolute path of the portal upload file, beside the app."""
+    return os.path.join(app_dir(), CLEANED_FILE)
+
+
+def modified_path():
+    """Default absolute path of the built workbook, beside the app."""
+    return os.path.join(app_dir(), MODIFIED_FILE)
 
 MERGE_COLUMNS = [
     "Your Reference 1",

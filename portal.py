@@ -42,7 +42,7 @@ def credentials():
     Read on demand rather than at import, so the UI can start and report the
     problem itself instead of dying on the import.
     """
-    load_dotenv()
+    load_dotenv(os.path.join(nwas_pipeline.app_dir(), ".env"))
     username = os.getenv("NWAS_USERNAME")
     password = os.getenv("NWAS_PASSWORD")
     if not username or not password:
@@ -197,9 +197,9 @@ def normalise_ids(series):
     return pd.to_numeric(stripped, errors="coerce").astype("Int64").astype(str)
 
 
-def load_ghost_file(path=CLEANED_FILE):
+def load_ghost_file(path=None):
     """Read the cleaned ghost file, with its reference column normalised for merging."""
-    ghost_df = pd.read_excel(path)
+    ghost_df = pd.read_excel(path or nwas_pipeline.cleaned_path())
     ghost_df["Your Reference 1"] = normalise_ids(ghost_df["Your Reference 1"])
     return ghost_df
 
